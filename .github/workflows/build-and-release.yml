@@ -37,14 +37,16 @@ jobs:
           zip -r artifacts/nmrium-build.zip build
 
       - name: Release to GitHub
-        uses: googleapis/release-please-action@v4
+        uses: softprops/action-gh-release@v1
         with:
-          release-type: node
-          repo-url: RuikangSun/nmrium_build
-          token: ${{ secrets.GITHUB_TOKEN }}
-          assets: |
-            artifacts/nmrium-build.zip
-          title: NMRium构建发布 ${{ github.run_number }}
+          files: artifacts/nmrium-build.zip
+          tag_name: v${{ github.run_number }}
+          name: NMRium 构建发布 v${{ github.run_number }}
+          body: |
+            本次发布包含编译后的静态文件（HTML、CSS、JS）。
+            产物：`nmrium-build.zip`（解压后直接双击 `index.html` 使用）
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           body: |
             本次发布包含编译后的静态文件（HTML、CSS、JS）。
             产物：`nmrium-build.zip`（解压后直接使用）
