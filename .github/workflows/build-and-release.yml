@@ -23,15 +23,16 @@ jobs:
 
       - name: Build project
         run: npm run build
-
+        
       - name: Verify build output
         run: |
-          if [ ! -d "dist" ]; then
-            echo "错误：构建输出目录 'dist' 未找到！"
+          if [ ! -d "build" ]; then
+            echo "错误：构建输出目录“build”未找到"
             exit 1
           fi
 
       - name: Package build output
         run: |
           mkdir -p artifacts
-          zip -r artifacts/nmrium-build.zip dist
+          zip -r artifacts/nmrium-build.zip build
+    
