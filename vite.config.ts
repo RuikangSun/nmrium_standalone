@@ -2,41 +2,56 @@ import react from '@vitejs/plugin-react-swc';
 import type { UserConfig } from 'vite';
 import { defineConfig } from 'vitest/config';
 
+// 自定义插件：移除 index.html 中的 module 和 crossorigin 属性
+function removeModuleAttribute() {
+  return {
+    name: 'remove-module-attribute',
+    transformIndexHtml(html: string) {
+      return html
+        .replace(/\s*type="module"\s*/g, '')
+        .replace(/\s*crossorigin\s*/g, '');
+    },
+  };
+}
+
 export default defineConfig({
-  base: './', // 关键：适配 file:// 协议的相对路径
+  base: './',
   build: {
-    target: 'es2015', // 兼容现代浏览器（无需模块化）
-    modulePreload: false, // 关键 1：禁用模块预加载（避免生成 module 标签）
+    target: 'es2015',
+    modulePreload: false,
     rollupOptions: {
       output: {
-        format: 'iife', // 关键 2：输出为立即执行函数（非模块化）
-        name: 'NMRiumApp', // 关键 3：全局变量名（挂载 React 应用）
-        manualChunks: undefined, // 关键 4：关闭代码拆分（iife 不支持多文件）
-        entryFileNames: 'assets/[name]-[hash].js', // 确保 JS 后缀为 .js
+        format: 'iife',
+        name: 'NMRiumApp',
+        manualChunks: undefined,
+        entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
+        // 关键：添加全局命名空间声明
+        intro: 'const global = window;'
       },
     },
     commonjsOptions: {
-      transformMixedEsModules: true, // 关键 5：强制转换混合 ES 模块为 CommonJS
+      transformMixedEsModules: true,
     },
-    assetsInlineLimit: 0, // 禁用小资源内联（避免干扰脚本类型）
+    assetsInlineLimit: 0,
+    // 关键：禁用 CSS 代码拆分
+    cssCodeSplit: false,
+    // 关键：禁用最小化以简化调试
+    minify: false,
   },
   plugins: [
     react({
-      // 关键 6：禁用 React 的 JSX 模块化注入（避免生成 module 标签）
       jsxImportSource: 'react',
-      babel: {
-        plugins: [
-          // 可选：转换 JSX 为非模块化调用（如 React.createElement）
-          '@babel/plugin-transform-react-jsx',
-        ],
-      },
+      // 移除 Babel 插件（使用默认转换）
+      babel: undefined
     }),
+    // 应用自定义插件
+    removeModuleAttribute()
   ],
   esbuild: {
-    // 关键 7：禁用 ESBuild 的模块化语法保留
     keepNames: true,
     jsx: 'automatic',
-    jsxInject: `import React from 'react'`, // 避免模块导入语句
+    // 移除 JSX 注入（避免 ES6 导入）
+    jsxInject: undefined
   },
 } as UserConfig);
