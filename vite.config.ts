@@ -9,21 +9,17 @@ function fileProtocolPlugin() {
   return {
     name: 'file-protocol-plugin',
     
-    // 1. 修复 index.html 中的空格问题并移除 crossorigin
+    // 修复 index.html 中的空格问题并移除 crossorigin
     transformIndexHtml(html: string) {
       return html
-        // 修复空格问题（确保属性间有空格）
-        .replace(/(<script[^>]+?)(?=src)/g, '$1 ')
-        // 移除 type="module" 和 crossorigin
         .replace(/\s*type="module"\s*/g, ' ')
         .replace(/\s*crossorigin\s*/g, ' ')
-        // 添加 defer 属性确保 DOM 加载完成
-        .replace(/(<script\s)/g, '$1defer ');
+        .replace(/(<script\s)/g, '$1defer '); // 添加 defer 属性
     },
     
-    // 2. 构建后处理：确保所有路径正确
+    // 构建后处理：确保所有路径正确
     closeBundle() {
-      const indexPath = resolve(__dirname, 'dist', 'index.html');
+      const indexPath = resolve(__dirname, 'build', 'index.html');
       let html = readFileSync(indexPath, 'utf-8');
       
       // 确保 #root 元素存在
@@ -31,12 +27,17 @@ function fileProtocolPlugin() {
         html = html.replace(
           /<body>(.*?)<\/body>/s,
           `<body>
-            <noscript>You need to enable JavaScript to run this app.</noscript>
             <div id="root"></div>
+            <noscript>You need to enable JavaScript to run this app.</noscript>
             $1
           </body>`
         );
       }
+      
+      // 修复脚本标签
+      html = html
+        .replace(/(<script[^>]+?)(?=src)/g, '$1 ')
+        .replace(/(<script\s)/g, '$1defer ');
       
       writeFileSync(indexPath, html);
       console.log('✅ Fixed index.html for file:// protocol');
@@ -58,19 +59,11 @@ export default defineConfig({
         chunkFileNames: 'assets/[name]-[hash].js',
         // 添加全局对象修复
         intro: `
-          // 解决 #root 元素未找到问题
-          document.addEventListener('DOMContentLoaded', function() {
-            if (!document.getElementById('root')) {
-              const rootEl = document.createElement('div');
-              rootEl.id = 'root';
-              document.body.appendChild(rootEl);
-              console.warn('Created #root element dynamically');
-            }
-          });
-          
           // 解决全局对象问题
-          var global = window;
-          var process = { env: {} };
+          if (typeof window.global === 'undefined') {
+            window.global = window;
+          }
+          window.process = { env: {} };
         `
       },
     },
