@@ -1,16 +1,46 @@
 import react from '@vitejs/plugin-react-swc';
 import type { UserConfig } from 'vite';
 import { defineConfig } from 'vitest/config';
+import { readFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 
-// 自定义插件：移除 index.html 中的 module 和 crossorigin 属性
-function removeModuleAttribute() {
+// 自定义插件：修复所有 file:// 协议问题
+function fileProtocolPlugin() {
   return {
-    name: 'remove-module-attribute',
+    name: 'file-protocol-plugin',
+    
+    // 1. 修复 index.html 中的空格问题并移除 crossorigin
     transformIndexHtml(html: string) {
       return html
-        .replace(/\s*type="module"\s*/g, '')
-        .replace(/\s*crossorigin\s*/g, '');
+        // 修复空格问题（确保属性间有空格）
+        .replace(/(<script[^>]+?)(?=src)/g, '$1 ')
+        // 移除 type="module" 和 crossorigin
+        .replace(/\s*type="module"\s*/g, ' ')
+        .replace(/\s*crossorigin\s*/g, ' ')
+        // 添加 defer 属性确保 DOM 加载完成
+        .replace(/(<script\s)/g, '$1defer ');
     },
+    
+    // 2. 构建后处理：确保所有路径正确
+    closeBundle() {
+      const indexPath = resolve(__dirname, 'dist', 'index.html');
+      let html = readFileSync(indexPath, 'utf-8');
+      
+      // 确保 #root 元素存在
+      if (!html.includes('id="root"')) {
+        html = html.replace(
+          /<body>(.*?)<\/body>/s,
+          `<body>
+            <noscript>You need to enable JavaScript to run this app.</noscript>
+            <div id="root"></div>
+            $1
+          </body>`
+        );
+      }
+      
+      writeFileSync(indexPath, html);
+      console.log('✅ Fixed index.html for file:// protocol');
+    }
   };
 }
 
@@ -26,32 +56,45 @@ export default defineConfig({
         manualChunks: undefined,
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: 'assets/[name]-[hash].js',
-        // 关键：添加全局命名空间声明
-        intro: 'const global = window;'
+        // 添加全局对象修复
+        intro: `
+          // 解决 #root 元素未找到问题
+          document.addEventListener('DOMContentLoaded', function() {
+            if (!document.getElementById('root')) {
+              const rootEl = document.createElement('div');
+              rootEl.id = 'root';
+              document.body.appendChild(rootEl);
+              console.warn('Created #root element dynamically');
+            }
+          });
+          
+          // 解决全局对象问题
+          var global = window;
+          var process = { env: {} };
+        `
       },
     },
     commonjsOptions: {
       transformMixedEsModules: true,
     },
     assetsInlineLimit: 0,
-    // 关键：禁用 CSS 代码拆分
-    cssCodeSplit: false,
-    // 关键：禁用最小化以简化调试
+    // 禁用压缩以解决 "unreachable code" 错误
     minify: false,
+    // 禁用 CSS 代码拆分
+    cssCodeSplit: false,
   },
   plugins: [
     react({
       jsxImportSource: 'react',
-      // 移除 Babel 插件（使用默认转换）
+      // 简化 Babel 配置
       babel: undefined
     }),
-    // 应用自定义插件
-    removeModuleAttribute()
+    fileProtocolPlugin()
   ],
   esbuild: {
     keepNames: true,
     jsx: 'automatic',
-    // 移除 JSX 注入（避免 ES6 导入）
+    // 确保不注入模块导入
     jsxInject: undefined
   },
 } as UserConfig);
