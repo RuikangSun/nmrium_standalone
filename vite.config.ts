@@ -14,7 +14,7 @@ export default () => {
   }
 
   return defineConfig({
-    base: './',
+    base: './', // 保留相对路径，适配 file:// 协议
     esbuild: {
       jsx: 'automatic',
       sourcemap: 'inline',
@@ -25,20 +25,12 @@ export default () => {
         // @ts-expect-error analyzer types are wrong.
         plugins: process.env.ANALYZE ? [analyze()] : [],
         output: {
-          // 关键修改 1：禁用内联动态导入（解决与 manualChunks 的冲突）
-          inlineDynamicImports: false,
-          // 关键修改 2：输出格式改为 umd（兼容模块化和非模块化环境）
-          format: 'umd',
-          // 关键修改 3：指定全局变量名（umd 格式需要）
+          // 关键修改 1：输出格式改为 iife（单文件非模块化）
+          format: 'iife',
+          // 关键修改 2：指定全局变量名（用于挂载应用）
           name: 'NMRiumApp',
-          manualChunks(id) {
-            if (id.includes('node_modules/openchemlib/')) {
-              return 'openchemlib';
-            }
-            if (id.includes('node_modules')) {
-              return 'vendor';
-            }
-          },
+          // 关键修改 3：移除 manualChunks（关闭代码拆分）
+          manualChunks: undefined, 
           // 确保 JS 文件后缀为 .js（兼容 file:// 协议）
           chunkFileNames: 'assets/[name]-[hash].js',
           entryFileNames: 'assets/[name]-[hash].js',
