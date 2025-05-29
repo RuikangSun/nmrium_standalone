@@ -23,16 +23,23 @@ jobs:
 
       - name: Build project
         run: npm run build
-        
+
       - name: Verify build output
         run: |
-          if [ ! -d "build" ]; then
-            echo "错误：构建输出目录“build”未找到"
+          if [ ! -d "dist" ]; then
+            echo "错误：构建输出目录 'dist' 未找到！"
             exit 1
           fi
 
       - name: Package build output
         run: |
           mkdir -p artifacts
-          zip -r artifacts/nmrium-build.zip build
-    
+          zip -r artifacts/nmrium-build.zip dist
+
+      - name: Release to GitHub
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: node
+          repo-url: RuikangSun/nmrium_standalone
+          token: ${{ secrets.GITHUB_TOKEN }}
+          
